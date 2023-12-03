@@ -685,9 +685,8 @@ source("clsSTCC_x.r")
   
 }
 
-
-
-
+# Bivariate estimations (in-region) ----
+source("R/clsSTCC_x.r")
 estCtrl = list(verbose=TRUE,calcSE=TRUE)
 nlocs = length(regi)
 npairs <- length(regipairs)
@@ -756,6 +755,106 @@ for (i in 1:(nlocs-1)){
 }
 colnames(corr) = regipairs
 saveRDS(corr,file=paste0("Data/corr_",regions[regidx],"_",MthName,".RDS"))
+
+
+# NORTH_BY_WEST ----
+{
+    regidx = 8
+    region1 = region$North
+    region2 = region$West
+    regipairs = regionPairs$North_By_West
+    
+    mo = 1
+    # Random choices to test the code:
+    stccpairs = c("HEL-TRI","HEL-LUX")
+    stccxpairs = c("LUN-ZRH","OKE-TLS")
+    mo = 2
+    #stccpairs = c("TRI-LUX","TRI-DIJ")
+    mo = 4
+    #stccpairs = c("TRI-LUX","SXB-DIJ","DIJ-TLS")
+    mo = 5
+    #stccpairs = c("TRI-LUX")
+    mo = 7
+    #stccpairs = c("LUX-ZRH")
+    mo = 10
+    #stccpairs = c("TRI-LUX")
+    mo = 12
+    #stccpairs = c("TRI-LUX","LUX-DIJ")
+    
+}
+
+
+# Bivariate estimations (cross-region) ----
+estCtrl = list(verbose=TRUE,calcSE=TRUE)
+npairs <- length(regipairs)
+corrmat <- matrix(nrow=npairs,ncol=npairs)
+rownames(corrmat) <- colnames(corrmat) <- regipairs
+MthName <- stringr::str_to_upper(month.abb[mo])
+ntvFileName <- paste0("Data/","Rain_",MthName,"_ntvgarch.RDS")
+ntv_models <- readRDS(ntvFileName)
+#
+bivmodel <- list()
+corr <- NULL
+k=1
+for (i in 1:length(region1)){
+    print(paste0("i = ",i))
+    for (j in 1:length(region2)){
+        print(paste0("j = ",j))
+        pairname <- c(region1[i],region2[j])
+        pairlabel <- paste0(pairname[1],"-",pairname[2])
+        ntv_list = ntv_models[pairname]
+        ntv <- ntvgarch(ntv_list,pairname)
+        e <- matrix()
+        for (n in 1:ntv@N){
+            if(n==1) e <- ntv[[1]]@e
+            else e = cbind(e,ntv[[n]]@e)
+        }
+        if (pairlabel %in% stccpairs){
+            Tobs <- NROW(e)
+            N <- length(pairname)
+            g <- matrix(1,Tobs,N)
+            for (n in 1:N) {
+                g[,n] <- ntv[[n]]$Estimated$tv$g
+            }
+            z <- e/sqrt(g)
+            stccmodel = stcc1(z,ntv)
+            stccmodel = estimateSTCC1(z,stccmodel,estCtrl)
+            bivmodel[[k]] <- stccmodel
+            corr <- cbind(corr,stccmodel$Estimated$Pt)
+        } else if (pairlabel %in% stccxpairs){
+            Tobs <- NROW(e)
+            N <- length(pairname)
+            g <- matrix(1,Tobs,N)
+            for (n in 1:N) {
+                g[,n] <- ntv[[n]]$Estimated$tv$g
+            }
+            z <- e/sqrt(g)
+            stccmodel = stcc1(z,ntv)
+            zDiv3 <- round(Tobs/3)
+            z.start <- zDiv3
+            z.end <- 2*zDiv3
+            stccmodel$P1 <- cor(z[(z.start:z.end),])
+            zDiv6 <- round(Tobs/6)
+            z.start <- (1:zDiv6)
+            z.end <- ((Tobs-zDiv6):Tobs)
+            stccmodel$P2 <- cor(z[c(z.start,z.end),])
+            stccmodel = estimateSTCC1_x(z,stccmodel,estCtrl)
+            bivmodel[[k]] <- stccmodel
+            corr <- cbind(corr,stccmodel$Estimated$Pt)
+        } else {
+            cccmodel = ccc(2,ntv)
+            cccmodel = estimateCCC(e,cccmodel,estCtrl)
+            bivmodel[[k]] <- cccmodel
+            rhovec <- rep(cccmodel$Estimated$P[2,1],NROW(e))
+            corr <- cbind(corr,rhovec)
+        }
+        k <- k+1
+    }
+}
+colnames(corr) = regipairs
+saveRDS(corr,file=paste0("Data/corr_",names(regionPairs[regidx]),"_",MthName,".RDS"))
+
+
 
 
 ## plot correlations ----
