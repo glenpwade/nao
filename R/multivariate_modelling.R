@@ -147,6 +147,11 @@ start = which(!is.na(match(names(regionPairs),"CentralEurope")))
 end = which(!is.na(match(names(regionPairs),"SouthMediterranean")))
 regionPairs$CentralEurope_By_SouthMediterranean <- get.pairnames(start,end)
 
+## 1.10 West_By_SouthMediterranean ----
+regionPairs$West_By_SouthMediterranean <- vector("character")
+start = which(!is.na(match(names(regionPairs),"West")))
+end = which(!is.na(match(names(regionPairs),"SouthMediterranean")))
+regionPairs$West_By_SouthMediterranean <- get.pairnames(start,end)
 
 # 2. Truncate data such that it starts 1851m3 for all locations - DONE, just read in data. ####
 if (FALSE){
@@ -216,9 +221,9 @@ format(scientific=FALSE, round(cccmat,4))
 mo = 1
 regi = region$West
 
-#source("clsCCC.r")
-#source("source code for reference latest/all_common.r")
-#source("source code for reference latest/clsTVGARCH.r")
+source("R/clsCCC.r")
+source("R/all_common.r")
+source("R/clsTVGARCH.r")
 
 npairs <- length(regi)
 stccmat1 <- stccmat2 <- matrix(nrow=npairs,ncol=npairs)
@@ -248,6 +253,58 @@ for (i in 1:(npairs-1)){
     stcctest = test.CCCvSTCC1(e,NullHyp,st,testOrd)
     stccmat2[j,i] <- stcctest[2]
   }
+}
+
+format(scientific=FALSE, round(stccmat1,4))
+format(scientific=FALSE, round(stccmat2,4))
+
+
+# Modification of CCC Test to handle cross-region pairs: ----
+
+# --- Test for CCC: PAIRWISE for a selection of cross-regions and months ####
+# Note: parsimonious and regular tests are identical in bivariate case, do only regular
+## pick month and region ----
+mo = 1
+region1 = region$North
+region2 <- region$CentralEurope
+pairNames <- regionPairs$North_By_CentralEurope
+
+source("R/clsCCC.r")
+source("R/all_common.r")
+source("R/clsTVGARCH.r")
+
+npairs <- length(pairNames)
+stccmat1 <- stccmat2 <- matrix(nrow=length(region2),ncol=length(region1))
+
+colnames(stccmat1) <- colnames(stccmat2) <- region1
+rownames(stccmat1) <- rownames(stccmat2) <- region2
+
+MthName <- stringr::str_to_upper(month.abb[mo])
+ntvFileName <- paste0("Data/","Rain_",MthName,"_ntvgarch.RDS")
+ntv_models <- readRDS(ntvFileName)
+
+for (i in 1:length(region1)){
+    for (j in 1:length(region2)){
+        pairname <- c(region1[i],region2[j])
+        ntv_list = ntv_models[pairname]
+        ntv <- ntvgarch(ntv_list,pairname)
+        e <- matrix()
+        for (n in 1:ntv@N){
+            if(n==1) e <- ntv[[1]]@e
+            else e = cbind(e,ntv[[n]]@e)
+        }
+        Tobs <- NROW(e)
+        this <- new("ccc_class")
+        NullHyp = ccc(2,ntv)
+        NullHyp = estimateCCC(e,NullHyp,estCtrl)
+        st = seq(-0.5,0.5,length.out=Tobs)
+        testOrd=1
+        stcctest = test.CCCvSTCC1(e,NullHyp,st,testOrd)
+        stccmat1[j,i] <- stcctest[2]
+        testOrd=2
+        stcctest = test.CCCvSTCC1(e,NullHyp,st,testOrd)
+        stccmat2[j,i] <- stcctest[2]
+    }
 }
 
 format(scientific=FALSE, round(stccmat1,4))
@@ -465,7 +522,7 @@ corrPlots <- ggplot(df) + ggtitle(title_text)
 corrPlots <- corrPlots  + geom_line(aes(x=as.Date(Time), y=as.numeric(value), color = Pair ), linewidth =lineSize, show.legend = TRUE) 
 corrPlots
 
-# By region bivariate: Estimate TVCC and CCC ####
+# 6. By region bivariate: Estimate TVCC and CCC ####
 ## pick region and month, list pairs that have TVCC, others have CCC ----
 source("clsSTCC_x.r")
 
