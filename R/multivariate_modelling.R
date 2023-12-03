@@ -6,14 +6,13 @@ library(reshape2)
 library(ggplot2)
 library(MTVGARCH)  #ver. 0.8.3
 
-setwd("D:/GoogleDrive/MyDocs/Annastiina/Topics/MTVGJR_MGARCH/Project16_Rainfall/R")   #Anna's Laptop - GOOGLE DRIVE
+#setwd("D:/GoogleDrive/MyDocs/Annastiina/Topics/MTVGJR_MGARCH/Project16_Rainfall/R")   #Anna's Laptop - GOOGLE DRIVE
 #setwd("C:/Users/silvenno/Google Drive/MyDocs/Annastiina/Topics/MTVGJR_MGARCH/Project16_Rainfall/R")   #Anna's Work PC - GOOGLE DRIVE
 
-#setwd("C:/Source/Repos/tv_betas/anna")
+setwd("C:/Source/Repos/nao") 
 #source("clsCCC.r")
 #source("manually source code for reference latest/all_common.r")
 #source("manually source code for reference latest/clsTVGARCH.r")
-#source("clsCDC.r")
 #source("clsSTCC_x.r")
 
 my_data <- read_excel("Data/stations.xlsx")
@@ -63,7 +62,6 @@ region$Atlantic <- c("DUB","HOO","DEB","ORK","OXF","UCC")  # 6 Cities
 region$CentralEurope <- c("ERF","PRG","VIE","BUD","KLU","SIB","TRS")  # 7 Cities
 region$West <- c("TRI","LUX","SXB","ZRH","DIJ","BOD","TLS")  # 7 Cities
 region$SouthMediterranean <- c("MRS","PGF","LIS","BEI","LUQ","SEN")  # 6 Cities
-region$Mixed <- c("HEL","OXF","VIE","DIJ","BEI")
 
 regionPairs <- list()
 regionPairs$North <- c("None")
@@ -72,7 +70,7 @@ regionPairs$CentralEurope <- c("None")
 regionPairs$West <- c("None")
 regionPairs$SouthMediterranean <- c("None")
 
-for (r in 1:5){
+for (r in 1:length(regionPairs)){
   pairNames<- NULL
   for (i in 1:(length(region[[r]])-1)){
     for (j in (i+1):length(region[[r]])){
@@ -81,6 +79,73 @@ for (r in 1:5){
   }
   regionPairs[[r]]<-pairNames
 }
+
+## Determine cross-region pairs: ----
+
+## First define our little pairname calculator as a function:
+get.pairnames = function(start,end){
+    pairNames <- NULL
+    for (i in 1:(length(region[[start]]))){
+        for (j in 1:length(region[[end]])){
+            pairNames <- c(pairNames,paste0(region[[start]][i],"-",region[[end]][j]))
+        }
+    }
+    return(pairNames)
+}
+
+## 1.1 North_By_Atlantic ----
+regionPairs$North_By_Atlantic <- vector("character")
+start = which(!is.na(match(names(regionPairs),"North")))
+end = which(!is.na(match(names(regionPairs),"Atlantic")))
+regionPairs$North_By_Atlantic <- get.pairnames(start,end)
+
+## 1.2 North_By_CentralEurope ----
+regionPairs$North_By_CentralEurope <- vector("character")
+start = which(!is.na(match(names(regionPairs),"North")))
+end = which(!is.na(match(names(regionPairs),"CentralEurope")))
+regionPairs$North_By_CentralEurope <- get.pairnames(start,end)
+
+## 1.3 North_By_West ----
+regionPairs$North_By_West <- vector("character")
+start = which(!is.na(match(names(regionPairs),"North")))
+end = which(!is.na(match(names(regionPairs),"West")))
+regionPairs$North_By_West <- get.pairnames(start,end)
+
+## 1.4 North_By_SouthMediterranean ----
+regionPairs$North_By_SouthMediterranean <- vector("character")
+start = which(!is.na(match(names(regionPairs),"North")))
+end = which(!is.na(match(names(regionPairs),"SouthMediterranean")))
+regionPairs$North_By_SouthMediterranean <- get.pairnames(start,end)
+
+## 1.5 Atlantic_By_CentralEurope ----
+regionPairs$Atlantic_By_CentralEurope <- vector("character")
+start = which(!is.na(match(names(regionPairs),"Atlantic")))
+end = which(!is.na(match(names(regionPairs),"CentralEurope")))
+regionPairs$Atlantic_By_CentralEurope <- get.pairnames(start,end)
+
+## 1.6 Atlantic_By_West ----
+regionPairs$Atlantic_By_West <- vector("character")
+start = which(!is.na(match(names(regionPairs),"Atlantic")))
+end = which(!is.na(match(names(regionPairs),"West")))
+regionPairs$Atlantic_By_West <- get.pairnames(start,end)
+
+## 1.7 Atlantic_By_SouthMediterranean ----
+regionPairs$Atlantic_By_SouthMediterranean <- vector("character")
+start = which(!is.na(match(names(regionPairs),"Atlantic")))
+end = which(!is.na(match(names(regionPairs),"SouthMediterranean")))
+regionPairs$Atlantic_By_SouthMediterranean <- get.pairnames(start,end)
+
+## 1.8 CentralEurope_By_Weste ----
+regionPairs$CentralEurope_By_West <- vector("character")
+start = which(!is.na(match(names(regionPairs),"CentralEurope")))
+end = which(!is.na(match(names(regionPairs),"West")))
+regionPairs$CentralEurope_By_West <- get.pairnames(start,end)
+
+## 1.9 CentralEurope_By_SouthMediterranean ----
+regionPairs$CentralEurope_By_SouthMediterranean <- vector("character")
+start = which(!is.na(match(names(regionPairs),"CentralEurope")))
+end = which(!is.na(match(names(regionPairs),"SouthMediterranean")))
+regionPairs$CentralEurope_By_SouthMediterranean <- get.pairnames(start,end)
 
 
 # 2. Truncate data such that it starts 1851m3 for all locations - DONE, just read in data. ####
@@ -126,11 +191,7 @@ for (regi in 1:5){
     
     NullHyp = ccc(length(region_names),ntv)
     NullHyp = estimateCCC(e,NullHyp,estCtrl)
-    
-    #tmp <- NullHyp$Estimated$P
-    #colnames(tmp) <- rownames(tmp) <- region_names
-    
-    
+
     st = seq(-0.5,0.5,length.out=Tobs)
     testOrd=3
     ccctest <- test.CCCParsim(e,NullHyp,st,testOrd)
